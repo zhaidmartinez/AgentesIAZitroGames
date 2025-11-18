@@ -1,0 +1,57 @@
+## ZitroGames · Knowledge-Base · YAML v1.0
+bdc_version: "v1.0"
+last_full_refresh: "2024-01-15"
+contact_owner: "zhaid.martinez@codster.com"
+
+DataDictionary:
+  - id: "modelo_zitrogames"
+    schema: "generic_lake"
+    description: "Modelo de datos de ZitroGames para análisis de operación de máquinas de casino"
+    tables:
+
+    #Tabla Principal de Operaciones Gaming
+      - id: "zitro_games_data"
+        description: "Registro histórico de operación diaria de máquinas de juego (slots y bingo) de Zitro Games en distintos casinos. Incluye datos operativos, financieros y de uso para análisis de rentabilidad, ocupación y rendimiento"
+        columns:
+          - { name: "estado", type: "varchar", length: 60, description: "Lugar geográfico donde se encuentra el casino" }
+          - { name: "casino", type: "varchar", length: 120, description: "Nombre del casino donde opera la máquina" }
+          - { name: "licencia", type: "bigint", description: "Identificador único de la máquina de juego" }
+          - { name: "fecha", type: "date", description: "Fecha de registro de los datos operativos" }
+          - { name: "zona_casino", type: "varchar", length: 40, description: "Ubicación específica de la máquina dentro del casino (Fumar, No Fumar, VIP)" }
+          - { name: "tipo_operacion", type: "varchar", length: 40, description: "Modalidad de propiedad de la máquina (Renta, Propio)" }
+          - { name: "juego", type: "varchar", length: 120, description: "Nombre del juego instalado en la máquina" }
+          - { name: "tipo_maquina", type: "varchar", length: 20, description: "Categoría de la máquina (Video Bingo, Video Slots)" }
+          - { name: "mueble", type: "varchar", length: 50, description: "Tipo de gabinete o estructura física de la máquina (Allure, Black, Fusion)" }
+          - { name: "coin_in", type: "decimal(12,2)", description: "Dinero total apostado por los jugadores en pesos mexicanos" }
+          - { name: "coin_out", type: "decimal(12,2)", description: "Dinero total pagado en premios a los jugadores en pesos mexicanos" }
+          - { name: "partidas", type: "bigint", description: "Cantidad total de jugadas o partidas realizadas en la máquina" }
+          - { name: "ocupacion_segundos", type: "bigint", description: "Tiempo total en segundos que la máquina estuvo siendo utilizada" }
+          - { name: "maquinas_dia", type: "bigint", description: "Contador de apoyo para cálculo de KPIs (siempre 1 por registro diario)" }
+
+        primary_key: ["licencia", "fecha"]
+        
+        # KPIs Calculados
+        calculated_metrics:
+          - { name: "coin_in_pud", formula: "suma(coin_in) / suma(maquinas_dia)", description: "Promedio de Apuesta Diaria por Máquina" }
+          - { name: "win_pud", formula: "suma(coin_in - coin_out) / suma(maquinas_dia)", description: "Promedio de Ganancia diaria por máquina" }
+          - { name: "rtp", formula: "suma(coin_out) / suma(coin_in) * 100", description: "Porcentaje de pagos con respecto a lo apostado (%)" }
+          - { name: "ocup_pud", formula: "suma(ocupacion_segundos) / suma(maquinas_dia) / 3600", description: "Promedio de tiempo de ocupación diaria por máquina (horas)" }
+          - { name: "bet_x_game", formula: "suma(coin_in) / suma(partidas)", description: "Apuesta promedio por partida" }
+          - { name: "games_pud", formula: "suma(partidas) / suma(maquinas_dia)", description: "Promedio de partidas diaria por máquina" }
+          - { name: "n_mach", formula: "count(distinct licencia)", description: "Cantidad total de máquinas únicas" }
+
+        business_rules:
+          - "Cada registro representa la operación diaria de una máquina específica"
+          - "coin_in siempre debe ser >= 0"
+          - "coin_out siempre debe ser >= 0"
+          - "RTP típico oscila entre 85% y 95%"
+          - "ocupacion_segundos no puede exceder 86,400 segundos (24 horas)"
+          - "maquinas_dia siempre es 1 para registros válidos"
+
+        use_cases:
+          - "Análisis de rentabilidad por casino y zona"
+          - "Comparación de rendimiento entre juegos"
+          - "Optimización de layout del piso del casino"
+          - "Identificación de máquinas de alto/bajo rendimiento"
+          - "Análisis de ocupación y utilización"
+          - "Benchmarking entre casinos y estados"
