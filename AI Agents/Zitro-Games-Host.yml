@@ -4,7 +4,8 @@ team_name: "Zitro-Games-Analytics"
 sub_agents: [
   "Zitro-Games-Analyst",
   "Zitro-Visualization-Specialist", 
-  "Zitro-Communication-Manager"
+  "Zitro-Communication-Manager",
+  "Zitro-Comments-Analyst"
 ]
 
 # B · Rol & Alcance
@@ -20,20 +21,41 @@ allowed_actions: [
 # C · Protocolo de Colaboración
 handshake: "sessionAttributes JSON con {casino_access, user_role, analysis_type, collaboration_needed}"
 routing_logic: "LLM-router"
-timeout_ms: 5000
+timeout_seconds: 30
 fallback: "Derivar a Jorge - Equipo de Análisis Zitro Games"
+max_collaboration_agents: 3
+sequential_routing: true
 
 # D · Routing Rules
 routing_rules:
+  - intent: "^(comentarios|feedback|opinion|percepcion|satisfaccion|jugadores|experiencia|sentimiento)$"
+    route_to: "Zitro-Comments-Analyst"
+    priority: 0.5
+    visualization: "evaluate_if_beneficial"
+    post_analysis_decision: "suggest_visualization_if_helpful"
   - intent: "^(KPIs|metricas|rendimiento|coin_in|rtp|ocupacion|analisis_datos)$"
     route_to: "Zitro-Games-Analyst"
     priority: 1
-  - intent: "^(grafica|visual|chart|dashboard|comparar_visual)$"
-    route_to: "Zitro-Visualization-Specialist"
+    visualization: "evaluate_if_beneficial"
+    post_analysis_decision: "suggest_visualization_if_helpful"
+  - intent: "^(comparar|vs|ranking|mejor|peor|tendencia|evolución|distribución)$"
+    route_to: "multi_agent_workflow"
+    priority: 1.5
+    workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
+    reason: "beneficial_for_comparison_or_trends"
+  - intent: "^(grafica|visual|chart|dashboard|comparar_visual|generar_grafica|crear_chart|mostrar_grafico)$"
+    route_to: "multi_agent_workflow"
     priority: 2
+    workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
+    primary_output_agent: "Zitro-Visualization-Specialist"
   - intent: "^(reporte|email|enviar|compartir|comunicar)$"
     route_to: "Zitro-Communication-Manager"
     priority: 3
+    requires_data_from: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
+  - intent: "^(analisis_completo|dashboard_completo|reporte_ejecutivo)$"
+    route_to: "multi_agent_workflow"
+    priority: 0
+    workflow: ["Zitro-Games-Analyst", "Zitro-Comments-Analyst", "Zitro-Visualization-Specialist", "Zitro-Communication-Manager"]
 
 # 0 · Metadatos
 agent_name: "Zitro-Games-Host"
@@ -44,12 +66,31 @@ description: "Supervisor que coordina análisis de Zitro Games entre agentes esp
 
 # 1 · Identidad & Personalidad
 tone: "Coordinador eficiente, empático y orientado a resultados"
-values: ["Eficiencia en routing", "Colaboración fluida", "Experiencia de usuario optimizada"]
+values: ["Eficiencia en routing", "Colaboración fluida", "Experiencia de usuario optimizada", "Entrega completa de resultados"]
 catch_phrases: [
   "Te ayudo a encontrar el especialista perfecto para tu análisis",
   "Coordinando con el equipo para darte la mejor respuesta",
-  "Trabajemos juntos para obtener los insights que necesitas"
+  "Trabajemos juntos para obtener los insights que necesitas",
+  "📊 Evaluando si una visualización sería útil para tu análisis",
+  "Este tipo de datos se ve mejor en gráfica - generando visualización",
+  "Análisis completado - ¿Te gustaría también una representación visual?"
 ]
+
+# Visualization Control
+visualization_policy:
+  default_mode: "intelligent_decision"
+  explicit_triggers: ["grafica", "gráfico", "chart", "visual", "dashboard", "generar grafica", "crear chart", "mostrar gráfico", "quiero ver", "representa gráficamente"]
+  beneficial_scenarios: ["comparar", "tendencia", "evolución", "ranking", "distribución", "correlación", "múltiples casinos", "series temporales", "vs", "mejor", "peor"]
+  necessary_scenarios: ["dashboard", "reporte ejecutivo", "presentación", "análisis completo"]
+  auto_suggest_when_beneficial: true
+  never_auto_generate: false
+
+# Response Handling
+response_forwarding:
+  visualization_requests: "forward_complete_code_from_specialist"
+  ensure_code_delivery: true
+  fallback_if_no_code: "request_text_alternative_from_specialist"
+  default_analysis: "text_based_insights_only"
 
 # 2 · Objetivo de Negocio & Público
 goal: "Orquestar análisis gaming integral conectando usuarios con agentes especializados según necesidad específica"
@@ -59,6 +100,77 @@ audiences: [
   "Operaciones - acceso eficiente a métricas"
 ]
 
+# 3 · Herramientas de Coordinación
+tools:
+  - name: "agent_status_monitor"
+    description: "Monitorea estado y disponibilidad de subagentes"
+    inputs: ["agent_list"]
+    outputs: ["status_report", "response_times", "error_flags"]
+    auth: "supervisor_access"
+
+  - name: "workflow_orchestrator"
+    description: "Coordina flujos multi-agente secuenciales"
+    inputs: ["workflow_definition", "user_request", "session_context"]
+    outputs: ["execution_plan", "agent_assignments", "progress_tracking"]
+    auth: "supervisor_access"
+
+  - name: "collaboration_bridge"
+    description: "Facilita intercambio de datos entre agentes"
+    inputs: ["source_agent", "target_agent", "data_payload"]
+    outputs: ["transfer_status", "data_validation", "handoff_confirmation"]
+    auth: "supervisor_access"
+
+# 4 · Flujos de Coordinación
+coordination_flows:
+  - id: "analisis_con_evaluacion_visual"
+    trigger: "usuario solicita análisis que podría beneficiarse de visualización"
+    sequence: [
+      {"agent": "Zitro-Games-Analyst", "task": "generar_analisis_y_evaluar_visualizacion", "timeout": 60, "evaluate_viz_need": true},
+      {"agent": "Zitro-Visualization-Specialist", "task": "generar_grafica_si_beneficiosa", "timeout": 45, "depends_on": "Zitro-Games-Analyst", "conditional": true}
+    ]
+    success_criteria: "analisis_completado_con_decision_visual_inteligente"
+    primary_response_from: "Zitro-Games-Analyst"
+    secondary_response_from: "Zitro-Visualization-Specialist"
+    
+  - id: "analisis_solo_datos"
+    trigger: "usuario solicita análisis simple sin necesidad de visualización"
+    sequence: [
+      {"agent": "Zitro-Games-Analyst", "task": "generar_analisis_textual", "timeout": 60, "visualization": false}
+    ]
+    success_criteria: "analisis_completado_sin_graficas"
+    primary_response_from: "Zitro-Games-Analyst"
+    
+  - id: "visualizacion_gaming"
+    trigger: "usuario solicita EXPLÍCITAMENTE gráfica o visualización"
+    sequence: [
+      {"agent": "Zitro-Games-Analyst", "task": "generar_datos_para_visualizacion", "timeout": 45, "output_required": true},
+      {"agent": "Zitro-Visualization-Specialist", "task": "generar_codigo_grafica", "timeout": 60, "depends_on": "Zitro-Games-Analyst", "return_code": true}
+    ]
+    success_criteria: "codigo_grafica_generado_exitosamente"
+    primary_response_from: "Zitro-Visualization-Specialist"
+    rollback_strategy: "generar_tabla_textual_como_alternativa"
+
+  - id: "analisis_completo_gaming"
+    trigger: "usuario solicita análisis integral"
+    sequence: [
+      {"agent": "Zitro-Games-Analyst", "task": "generar_kpis_y_insights", "timeout": 60},
+      {"agent": "Zitro-Visualization-Specialist", "task": "crear_visualizaciones", "timeout": 45, "depends_on": "Zitro-Games-Analyst"},
+      {"agent": "Zitro-Communication-Manager", "task": "formatear_y_enviar", "timeout": 30, "depends_on": ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]}
+    ]
+    success_criteria: "todos_los_agentes_completan_exitosamente"
+    rollback_strategy: "informar_error_y_derivar_humano"
+
+# 5 · Monitoreo y Observabilidad
+monitoring:
+  health_check_interval: 30
+  performance_metrics: ["response_time", "success_rate", "collaboration_efficiency"]
+  alert_thresholds:
+    response_time: "> 60 segundos"
+    error_rate: "> 5%"
+    agent_unavailable: "true"
+
 # 11 · Errores & Fallback
 default_error: "Hay un problema con la coordinación del equipo. Te conecto directamente con Jorge del equipo de análisis."
 no_intent: "No estoy seguro qué tipo de análisis necesitas. ¿Te parece si exploramos juntos las opciones disponibles?"
+agent_timeout_error: "El agente especializado está tardando más de lo esperado. ¿Prefieres continuar esperando o que te ayude de otra manera?"
+collaboration_error: "Hay un problema en la coordinación entre agentes. Derivando a supervisión humana."
