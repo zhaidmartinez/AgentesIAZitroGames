@@ -55,15 +55,21 @@ def export_table_from_access(access_file, table_name, month_tag):
     if COLUMN_MAPPING:
         df = df.rename(columns=COLUMN_MAPPING)
     
-    # Convertir columna fecha a tipo date
+    # Convertir columna fecha y agregar year, month
     if 'fecha' in df.columns:
-        df['fecha'] = pd.to_datetime(df['fecha']).dt.date
+        fecha_dt = pd.to_datetime(df['fecha'])
+        df['fecha'] = fecha_dt.dt.date
+        df['year'] = fecha_dt.dt.year
+        df['month'] = fecha_dt.dt.month
 
+    # Crear estructura de carpetas year=YYYY/month=MM/
+    year = month_tag[:4]
+    month = month_tag[4:6]
+    partition_folder = os.path.join(OUTPUT_FOLDER, f"year={year}", f"month={month}")
+    os.makedirs(partition_folder, exist_ok=True)
+    
     # Nombre del archivo de salida
-    out_file = os.path.join(
-        OUTPUT_FOLDER,
-        f"{month_tag}.{OUTPUT_FORMAT}"
-    )
+    out_file = os.path.join(partition_folder, f"{month_tag}.{OUTPUT_FORMAT}")
 
     # Guardar CSV
     if OUTPUT_FORMAT == "csv":
@@ -78,6 +84,8 @@ def export_table_from_access(access_file, table_name, month_tag):
             "ciudad": pa.string(),
             "estado": pa.string(),
             "fecha": pa.date32(),
+            "year": pa.int32(),
+            "month": pa.int32(),
             "juego": pa.string(),
             "kam": pa.string(),
             "licencia": pa.string(),

@@ -15,6 +15,28 @@ OUTPUT_FORMAT = "csv"  # también puede ser "parquet"
 OUTPUT_FOLDER = r"C:\Users\zhaid\Downloads\PoC\DATA IA CSV"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
+# Mapeo de nombres de columnas (opcional)
+# Formato: {"nombre_original": "nombre_nuevo"}
+COLUMN_MAPPING = {
+    "Casino": "casino",
+    "Ciudad": "ciudad",
+    "Estado": "estado",
+    "Fecha": "fecha",
+    "Juego": "juego",
+    "KAM": "kam",
+    "Licencia": "licencia",
+    "Mueble": "mueble",
+    "Operador": "operador",
+    "Region Comercial": "region_comercial",
+    "Tipo de Maquina ": "tipo_maquina",
+    "Tipo de Maquina": "tipo_maquina",
+    "Tipo de operacion": "tipo_operacion",
+    "_COIN IN (AGR)": "coin_in",
+    "_COIN OUT (AGR)": "coin_out",
+    "_Nº MACH DAY (AGR)": "maquinas_dia",
+    "Partidas (SUMA)": "partidas"
+}
+
 def export_table_from_access(access_file, table_name, month_tag):
     # Conexión al archivo Access
     conn_str = (
@@ -27,6 +49,14 @@ def export_table_from_access(access_file, table_name, month_tag):
     # Leer tabla completa
     query = f"SELECT * FROM {table_name}"
     df = pd.read_sql(query, conn)
+    
+    # Renombrar columnas si hay mapeo definido
+    if COLUMN_MAPPING:
+        df = df.rename(columns=COLUMN_MAPPING)
+    
+    # Convertir columna fecha a tipo date
+    if 'fecha' in df.columns:
+        df['fecha'] = pd.to_datetime(df['fecha']).dt.date
 
     # Nombre del archivo de salida
     out_file = os.path.join(

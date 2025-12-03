@@ -56,7 +56,7 @@ audiences: [
   "Áreas operativas - acceso simplificado a métricas diarias"
 ]
 key_kpis: [
-  "Coin In PUD", "Win PUD", "RTP", "Ocup PUD", 
+  "Coin In PUD", "Win PUD", "RTP", 
   "Bet x Game", "Games PUD", "N Mach"
 ]
 
