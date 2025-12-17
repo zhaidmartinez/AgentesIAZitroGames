@@ -17,8 +17,8 @@ DataDictionary:
           - { name: "ciudad", type: "varchar", length: 60, description: "Lugar Geográfico Ciudad" }
           - { name: "estado", type: "varchar", length: 60, description: "Lugar Geográfico Estado" }
           - { name: "fecha", type: "date", description: "Fecha de datos" }
-          - { name: "year", type: "int", description: "Año extraído del campo fecha (partición Athena)" }
-          - { name: "month", type: "int", description: "Mes extraído del campo fecha (partición Athena)" }
+          - { name: "year", type: "int", description: "Año extraído del campo fecha (partición Athena). Formato: 2023, 2024" }
+          - { name: "month", type: "int", description: "Mes extraído del campo fecha (partición Athena). Formato: 1, 2, 3... 12 (sin ceros)" }
           - { name: "juego", type: "varchar", length: 120, description: "Nombre del juego instalado en la máquina" }
           - { name: "kam", type: "varchar", length: 80, description: "Nombre del Key Account Manager" }
           - { name: "licencia", type: "varchar", description: "Identificador unico de máquina" }
@@ -26,13 +26,33 @@ DataDictionary:
           - { name: "operador", type: "varchar", length: 100, description: "Empresa Operador del Casino" }
           - { name: "region_comercial", type: "varchar", length: 60, description: "Lugar Geográfico Región" }
           - { name: "tipo_maquina", type: "varchar", length: 20, description: "Si es video bingo o video slots" }
-          - { name: "tipo_operacion", type: "varchar", length: 40, description: "Propiedad de la máquina" }
+          - { name: "tipo_operacion", type: "varchar", length: 40, description: "Modalidad comercial: Venta (casino propietario) o Renta (alquiler de máquinas)" }
           - { name: "coin_in", type: "decimal(12,2)", description: "Dinero apostado" }
           - { name: "coin_out", type: "decimal(12,2)", description: "Dinero pagado de premios" }
-          - { name: "maquinas_dia", type: "bigint", description: "Contador de apoyo para formular kpis" }
+          - { name: "maquinas_dia", type: "bigint", description: "Contador de apoyo para formular KPIs." }
           - { name: "partidas", type: "bigint", description: "Cantidad de jugadas" }
 
         primary_key: ["licencia", "fecha"]
+        
+        # Dominios de Datos (Ejemplos de muestra - valores pueden variar)
+        data_domains:
+          - { field: "casino", sample_values: ["ROYALTY CASINO JUAREZ", "CROWN SUPREME CASINO AGUASCALIENTES", "MIRAVALLE PALACE", "GRAND CIRCUS CULIACAN VTA", "YAK PARQUE DELTA", "CALIENTE GALERIAS HIPODROMO", "FLAMINGOS PALACE CASINO", "PLAY CITY LAS TORRES", "CODERE NOGALES", "CASINO VEGAS TAPACHULA"], data_type: "string", case_sensitive: false, note: "Ejemplos de muestra - existen más casinos" }
+          - { field: "ciudad", sample_values: ["Ciudad Juarez", "Aguascalientes", "Monterrey", "Culiacan", "Benito Juarez", "Tijuana", "Cordoba", "Puebla", "Nogales", "Tapachula"], data_type: "string", note: "Ejemplos de muestra - existen más ciudades" }
+          - { field: "estado", sample_values: ["Chihuahua", "Aguascalientes", "Nuevo León", "Sinaloa", "CDMX", "Baja California", "Veracruz", "Puebla", "Sonora", "Chiapas"], data_type: "string", note: "Ejemplos de muestra - existen más estados" }
+          - { field: "juego", sample_values: ["Mighty Hammer Link Up", "88LinkWildDuels", "Light Temple v2", "LinkMe2", "Triple Bonus", "LINK ME", "BashibaLink", "5 To Win", "Bingo Story"], data_type: "string", note: "Ejemplos de muestra - existen más juegos" }
+          - { field: "kam", sample_values: ["PAOLA FAJARDO", "LORENA ALCANTARA", "ISRAEL TORRES", "PAMELA ORTINEZ", "ALFREDO LOERA", "DANIELA SOTOMAYOR", "DAVID CARDENAS"], data_type: "string", note: "Ejemplos de muestra - existen más KAMs" }
+          - { field: "mueble", sample_values: ["Allure", "Illusion", "Fusion", "Black"], data_type: "string", note: "Ejemplos de muestra - pueden existir más tipos" }
+          - { field: "operador", sample_values: ["CROWN CITY GROUP", "THE HOUSE", "GRAND CIRCUS", "CIE", "DINEJUEGOS", "FLAMINGOS CASINO", "PLAY CITY", "CODERE", "TORREFIEL"], data_type: "string", note: "Ejemplos de muestra - existen más operadores" }
+          - { field: "region_comercial", sample_values: ["PACIFICO", "CENTRO", "MONTERREY", "CDMX2", "TIJUANA", "PUEBLA Y VERACRUZ", "PENINSULA"], data_type: "string", note: "Ejemplos de muestra - pueden existir más regiones" }
+          - { field: "tipo_maquina", sample_values: ["Slots", "Bingo"], data_type: "string", note: "Valores principales observados" }
+          - { field: "tipo_operacion", sample_values: ["Venta", "Renta"], data_type: "string", note: "Modalidad comercial: Venta (propiedad del casino) o Renta (alquiler de máquinas)" }
+          - { field: "year", sample_values: [2023, 2024], data_type: "int", range: "2020-2030" }
+          - { field: "month", sample_values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], data_type: "int", range: "1-12", format: "sin_ceros" }
+          - { field: "coin_in", sample_values: ["638.0-44056.12"], data_type: "decimal", range: ">=0", note: "Rango típico observado" }
+          - { field: "coin_out", sample_values: ["295.0-45993.5"], data_type: "decimal", range: ">=0", note: "Puede superar coin_in en algunos casos" }
+          - { field: "maquinas_dia", sample_values: [1], data_type: "bigint", note: "Siempre 1 después de limpieza" }
+          - { field: "partidas", sample_values: ["62-5006"], data_type: "bigint", range: ">=0", note: "Rango típico observado" }
+          - { field: "licencia", sample_values: ["3326057", "3838926", "6456259", "4238904"], data_type: "string", note: "IDs numéricos de 7 dígitos" }
         
         # KPIs Calculados
         calculated_metrics:
@@ -49,11 +69,35 @@ DataDictionary:
           - "coin_in siempre debe ser >= 0"
           - "coin_out siempre debe ser >= 0"
           - "RTP típico oscila entre 85% y 95%"
-          - "maquinas_dia siempre es 1 para registros válidos"
           - "licencia es el identificador único por máquina"
           - "kam (Key Account Manager) gestiona la relación comercial"
           - "year y month son particiones de Athena para optimizar consultas"
-          - "Usar filtros WHERE year=XXXX AND month=XX para mejor performance"
+          - "Tabla SIN partition projection - consultas más flexibles permitidas"
+          - "RECOMENDADO: Usar filtros WHERE year=XXXX AND month=X para mejor performance"
+          - "PERMITIDO: Consultas sin month (WHERE year=2023) pero más lentas"
+          - "PERMITIDO: Consultas multi-año (WHERE year IN (2022,2023)) sin restricciones"
+          - "Pipeline robusto: maneja 19 variaciones de nombres de columnas automáticamente"
+          - "OBLIGATORIO: Para filtros en columnas string usar UPPER() en ambos lados: WHERE UPPER(columna) = UPPER('valor')"
+
+        query_examples:
+          # Consultas OPTIMIZADAS (con filtros de partición)
+          - { description: "Consulta mensual optimizada", sql: "SELECT * FROM zitro_games_data WHERE year=2023 AND month=1" }
+          - { description: "Consulta trimestral optimizada", sql: "SELECT * FROM zitro_games_data WHERE year=2023 AND month IN (1,2,3)" }
+          - { description: "KPIs por casino optimizado", sql: "SELECT casino, SUM(coin_in)/SUM(maquinas_dia) as coin_in_pud FROM zitro_games_data WHERE year=2023 AND month IN (1,2,3) GROUP BY casino" }
+          - { description: "Tendencia mensual por tipo", sql: "SELECT month, tipo_maquina, SUM(coin_in)/SUM(maquinas_dia) as coin_in_pud FROM zitro_games_data WHERE year=2023 GROUP BY month, tipo_maquina" }
+          - { description: "Filtro por casino específico", sql: "SELECT * FROM zitro_games_data WHERE year=2023 AND month=4 AND UPPER(casino) = UPPER('ROYALTY CASINO JUAREZ')" }
+          - { description: "Filtro por tipo de operación", sql: "SELECT * FROM zitro_games_data WHERE year=2023 AND UPPER(tipo_operacion) = UPPER('Venta')" }
+          
+          # Consultas FLEXIBLES (sin month - más lentas pero válidas)
+          - { description: "Consulta anual completa", sql: "SELECT * FROM zitro_games_data WHERE year=2023" }
+          - { description: "Comparación multi-año", sql: "SELECT year, SUM(coin_in) as total FROM zitro_games_data WHERE year IN (2022,2023) GROUP BY year" }
+          - { description: "COUNT anual", sql: "SELECT COUNT(*) FROM zitro_games_data WHERE year=2023" }
+          - { description: "Análisis por casino sin filtros temporales", sql: "SELECT casino, AVG(coin_in) FROM zitro_games_data GROUP BY casino" }
+          
+          # Consultas INVÁLIDAS (EVITAR)
+          - { description: "EVITAR: Month con ceros", sql: "SELECT * FROM zitro_games_data WHERE month=01" }
+          - { description: "EVITAR: Campos inexistentes", sql: "SELECT revenue FROM zitro_games_data" }
+          - { description: "EVITAR: Casino sin UPPER", sql: "SELECT * FROM zitro_games_data WHERE casino = 'casino kings'" }
 
         use_cases:
           - "Análisis de rentabilidad por casino y zona"
@@ -62,3 +106,5 @@ DataDictionary:
           - "Identificación de máquinas de alto/bajo rendimiento"
           - "Análisis de ocupación y utilización"
           - "Benchmarking entre casinos y estados"
+          - "Tendencias temporales y estacionalidad"
+          - "Análisis comparativo multi-año"

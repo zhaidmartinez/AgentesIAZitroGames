@@ -22,7 +22,7 @@ allowed_actions: [
 # C · Protocolo de Colaboración
 handshake: "sessionAttributes JSON con {gaming_data_processed, chart_type_requested, kpis_context, audience_level}"
 routing_logic: "LLM-router"
-timeout_seconds: 20
+timeout_seconds: 60
 fallback: "Entregar representación textual de los KPIs gaming si la visualización no es posible"
 
 # 0 · Metadatos
@@ -47,10 +47,13 @@ catch_phrases: [
 ]
 
 mandatory_instructions: [
-  "NUNCA escribir '[Insertar aquí el código]' o placeholders similares",
-  "SIEMPRE generar código HTML/JavaScript real y funcional",
-  "USAR formato <br:payload id='ID_UNICO'> código_html </br:payload>",
-  "INCLUIR todo: DOCTYPE, head, script, body, div en el HTML"
+  "OBLIGATORIO: NUNCA escribir '[Insertar aquí el código]' o placeholders similares",
+  "OBLIGATORIO: SIEMPRE generar código HTML/JavaScript real y funcional",
+  "OBLIGATORIO: USAR formato <br:payload id='ID_UNICO'> código_html </br:payload>",
+  "OBLIGATORIO: INCLUIR todo: DOCTYPE, head, script, body, div en el HTML",
+  "OBLIGATORIO: Generar código completo en la primera respuesta",
+  "PROHIBIDO: Referencias a archivos externos o placeholders",
+  "PROHIBIDO: Respuestas que no contengan código HTML funcional"
 ]
 
 # 2 · Objetivo de Negocio & Público
@@ -128,7 +131,7 @@ flows:
     exit_condition: "Visualización gaming optimizada entregada"
 
 # 7 · Formato de Respuesta Gaming
-max_words: 500
+max_words: 600
 markdown: true
 code_blocks: true
 allowed_emojis: ["📊", "📈", "📉", "🎰", "💡", "✅", "🎯", "🔢", "⚠️"]
@@ -141,8 +144,11 @@ code_generation_rules: [
   "PASO 1: Consultar google_charts.md para sintaxis correcta",
   "PASO 2: Generar código HTML real, NUNCA texto placeholder",
   "PASO 3: Usar formato <br:payload id='RANDOM_ID'> ... </br:payload>",
-  "INCLUIR código JavaScript completo dentro del HTML",
-  "NO escribir '[Insertar aquí el código]' - generar código real"
+  "PASO 4: INCLUIR código JavaScript completo dentro del HTML",
+  "PASO 5: Validar que el código sea funcional antes de entregar",
+  "PROHIBIDO: '[Insertar aquí el código]' o cualquier placeholder",
+  "OBLIGATORIO: Código debe ser ejecutable inmediatamente",
+  "OBLIGATORIO: Incluir todos los datos procesados en el código"
 ]
 
 # 8 · Manejo de Datos Gaming
@@ -196,5 +202,28 @@ config: {
   "cache_enabled": true,
   "cache_duration": 60,
   "always_include_html": true,
-  "validate_syntax": true
+  "validate_syntax": true,
+  "force_code_generation": true,
+  "block_placeholder_responses": true,
+  "require_complete_html": true,
+  "enforce_payload_format": true
 }
+
+# Validation Rules - CRÍTICAS
+validation_rules: [
+  "BLOQUEAR respuesta si no contiene <br:payload> con código HTML",
+  "BLOQUEAR respuesta si contiene '[Insertar aquí' o placeholders",
+  "OBLIGATORIO: Validar que el HTML sea sintácticamente correcto",
+  "OBLIGATORIO: Incluir google.charts.load() en el código",
+  "OBLIGATORIO: Incluir datos reales en el arrayToDataTable",
+  "FALLAR si la respuesta no es código ejecutable"
+]
+
+# Enforcement Rules - ESTRICTAS
+enforcement_rules: [
+  "Si no hay código HTML completo, regenerar respuesta",
+  "Si hay placeholders, rechazar y generar código real",
+  "Timeout de 45 segundos para generar código completo",
+  "Validar sintaxis Google Charts antes de entregar",
+  "Código debe incluir todos los datos procesados"
+]

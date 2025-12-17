@@ -27,6 +27,22 @@ max_collaboration_agents: 3
 sequential_routing: true
 note_routing: "Sequential para garantizar dependencias. Considerar parallel para KPIs simples"
 
+# Handshake Específico para Visualization-Specialist
+visualization_handshake: {
+  "gaming_data_processed": "datos_del_analyst",
+  "chart_type_requested": "BarChart|LineChart|ComboChart",
+  "kpis_context": "contexto_gaming",
+  "audience_level": "tecnico|ejecutivo|operativo"
+}
+
+# Collaboration Protocol
+collaboration_protocol: [
+  "OBLIGATORIO: Usar handshake específico para cada agente",
+  "OBLIGATORIO: Incluir todos los campos requeridos en sessionAttributes",
+  "OBLIGATORIO: Validar compatibilidad antes de invocar agente",
+  "OBLIGATORIO: Proporcionar contexto completo de datos gaming"
+]
+
 # D · Routing Rules (ordenadas por prioridad: 0=máxima)
 routing_rules:
   # Prioridad 0: Análisis completo (máxima prioridad)
@@ -74,6 +90,18 @@ description: "Supervisor que coordina análisis de Zitro Games entre agentes esp
 # 1 · Identidad & Personalidad
 tone: "Coordinador eficiente, empático y orientado a resultados"
 values: ["Eficiencia en routing", "Colaboración fluida", "Experiencia de usuario optimizada", "Entrega completa de resultados"]
+
+# Formato de Respuesta Host
+max_words: 1500
+markdown: true
+code_blocks: true
+allowed_emojis: ["📊", "📈", "🎰", "💡", "✅", "🔄", "⚡"]
+response_structure: [
+  "Coordinación y routing",
+  "Resultados de agentes especializados",
+  "Código HTML completo (si aplica)",
+  "Próximos pasos o sugerencias"
+]
 catch_phrases: [
   "Te ayudo a encontrar el especialista perfecto para tu análisis",
   "Coordinando con el equipo para darte la mejor respuesta",
@@ -84,10 +112,13 @@ catch_phrases: [
 ]
 
 visualization_response_rules: [
-  "Cuando recibas <br:payload> de Zitro-Visualization-Specialist, incluye TODO el contenido",
-  "NO uses <br:share_payload> - copia el código HTML completo",
-  "El usuario necesita ver el código JavaScript/HTML directamente",
-  "Incluye el código entre ``` html y ``` para formato correcto"
+  "OBLIGATORIO: Cuando recibas <br:payload> de Zitro-Visualization-Specialist, incluye TODO el contenido",
+  "OBLIGATORIO: NO uses <br:share_payload> - copia el código HTML completo",
+  "OBLIGATORIO: El usuario necesita ver el código JavaScript/HTML directamente",
+  "OBLIGATORIO: Incluye el código entre ``` html y ``` para formato correcto",
+  "OBLIGATORIO: Preservar EXACTAMENTE el contenido entre <br:payload> y </br:payload>",
+  "PROHIBIDO: Resumir, truncar o referenciar el código - debe ser completo",
+  "OBLIGATORIO: Verificar que el payload esté completo antes de responder"
 ]
 
 # Visualization Control (complementa routing_rules)
@@ -96,13 +127,16 @@ visualization_policy:
   auto_suggest_when_beneficial: true
   note: "Routing rules manejan triggers explícitos. Esta política aplica para sugerencias inteligentes post-análisis"
 
-# Response Handling
+# Response Handling - CRÍTICO
 response_forwarding:
   visualization_requests: "include_full_payload_content"
   ensure_code_delivery: true
   expand_payload_content: true
   show_html_code_directly: true
   never_use_share_payload_reference: true
+  mandatory_payload_preservation: true
+  block_incomplete_responses: true
+  validate_html_completeness: true
 
 # 2 · Objetivo de Negocio & Público
 goal: "Orquestar análisis gaming integral conectando usuarios con agentes especializados según necesidad específica"
@@ -158,7 +192,7 @@ coordination_flows:
     trigger: "usuario solicita EXPLÍCITAMENTE gráfica o visualización"
     sequence: [
       {"agent": "Zitro-Games-Analyst", "task": "generar_datos_para_visualizacion", "timeout": 60, "output_required": true},
-      {"agent": "Zitro-Visualization-Specialist", "task": "generar_codigo_grafica", "timeout": 45, "depends_on": "Zitro-Games-Analyst", "return_code": true}
+      {"agent": "Zitro-Visualization-Specialist", "task": "generar_codigo_grafica", "timeout": 45, "depends_on": "Zitro-Games-Analyst", "return_code": true, "handshake": "visualization_handshake", "provide_context": true}
     ]
     success_criteria: "codigo_grafica_generado_exitosamente"
     primary_response_from: "Zitro-Visualization-Specialist"
@@ -167,6 +201,7 @@ coordination_flows:
     handle_truncated_responses: true
     request_completion_if_truncated: true
     rollback_strategy: "generar_tabla_textual_como_alternativa"
+    context_transfer: "incluir_datos_procesados_del_analyst"
 
   - id: "analisis_completo_gaming"
     trigger: "usuario solicita análisis integral"
@@ -187,20 +222,28 @@ monitoring:
     error_rate: "> 5%"
     agent_unavailable: "true"
 
-# Payload Preservation Rules
+# Payload Preservation Rules - CRÍTICAS
 payload_rules: [
-  "INCLUIR el contenido completo de <br:payload> en respuesta final",
-  "NO usar <br:share_payload> - incluir código HTML completo",
-  "COPIAR todo el contenido entre <br:payload> y </br:payload>",
-  "Mostrar código JavaScript/HTML directamente al usuario"
+  "OBLIGATORIO: INCLUIR el contenido completo de <br:payload> en respuesta final",
+  "OBLIGATORIO: NO usar <br:share_payload> - incluir código HTML completo",
+  "OBLIGATORIO: COPIAR todo el contenido entre <br:payload> y </br:payload>",
+  "OBLIGATORIO: Mostrar código JavaScript/HTML directamente al usuario",
+  "OBLIGATORIO: Validar que el HTML esté completo con DOCTYPE, head, script, body",
+  "PROHIBIDO: Responder sin código HTML cuando Visualization-Specialist lo genera",
+  "OBLIGATORIO: Si payload está incompleto, solicitar completar al agente",
+  "FALLAR si no se puede preservar el payload completo"
 ]
 
-# Truncated Response Handling
+# Truncated Response Handling - ESTRICTO
 truncated_response_rules: [
-  "Si respuesta de Zitro-Visualization-Specialist está cortada, solicitar completar",
-  "Detectar respuestas que terminan abruptamente sin </br:payload>",
-  "Pedir al agente que complete los insights y código faltante",
-  "Asegurar que el código HTML esté completo antes de responder al usuario"
+  "OBLIGATORIO: Si respuesta de Zitro-Visualization-Specialist está cortada, solicitar completar",
+  "OBLIGATORIO: Detectar respuestas que terminan abruptamente sin </br:payload>",
+  "OBLIGATORIO: Pedir al agente que complete los insights y código faltante",
+  "OBLIGATORIO: Asegurar que el código HTML esté completo antes de responder al usuario",
+  "BLOQUEAR respuesta si payload no contiene google.charts.load()",
+  "BLOQUEAR respuesta si payload no contiene arrayToDataTable",
+  "OBLIGATORIO: Verificar que el HTML sea sintácticamente válido",
+  "REINTENTAR hasta 2 veces si el código está incompleto"
 ]
 
 # 11 · Errores & Fallback
@@ -208,3 +251,73 @@ default_error: "Hay un problema con la coordinación del equipo. Te conecto dire
 no_intent: "No estoy seguro qué tipo de análisis necesitas. ¿Te parece si exploramos juntos las opciones disponibles?"
 agent_timeout_error: "El agente especializado está tardando más de lo esperado. ¿Prefieres continuar esperando o que te ayude de otra manera?"
 collaboration_error: "Hay un problema en la coordinación entre agentes. Derivando a supervisión humana."
+
+# Validation Rules for Visualization Payloads - CRÍTICAS
+visualization_validation_rules: [
+  "OBLIGATORIO: Verificar que <br:payload> contenga DOCTYPE html",
+  "OBLIGATORIO: Verificar que <br:payload> contenga google.charts.load()",
+  "OBLIGATORIO: Verificar que <br:payload> contenga arrayToDataTable",
+  "OBLIGATORIO: Verificar que <br:payload> termine con </br:payload>",
+  "BLOQUEAR respuesta si payload está incompleto",
+  "REINTENTAR generación si validación falla",
+  "FALLAR después de 2 intentos fallidos"
+]
+
+# Enforcement Rules for Host Agent - ESTRICTAS
+host_enforcement_rules: [
+  "Si Zitro-Visualization-Specialist genera <br:payload>, DEBE incluirse completo",
+  "NUNCA usar referencias o resúmenes del código HTML",
+  "SIEMPRE copiar el contenido exacto entre <br:payload> y </br:payload>",
+  "VALIDAR que el código sea ejecutable antes de responder",
+  "Si hay error en preservación, reintentar con el agente",
+  "Timeout de 60 segundos para obtener código completo"
+]
+
+# Response Quality Control
+quality_control: {
+  "require_complete_html": true,
+  "validate_google_charts_syntax": true,
+  "ensure_data_inclusion": true,
+  "block_placeholder_responses": true,
+  "mandatory_payload_validation": true
+}
+
+visualization_payload_error: "Error al obtener el código de visualización completo. Reintentando con el especialista..."
+incomplete_payload_error: "El código HTML está incompleto. Solicitando versión completa al agente de visualización..."
+# Response Length Management
+response_length_rules: [
+  "PRIORIZAR código HTML completo sobre límite de palabras",
+  "EXTENDER límite automáticamente para preservar payloads",
+  "NUNCA truncar código de visualización por límite de palabras",
+  "USAR formato conciso para texto explicativo",
+  "MAXIMIZAR espacio para código HTML funcional"
+]
+# Context Transfer Rules - CRÍTICAS
+context_transfer_rules: [
+  "OBLIGATORIO: Transferir datos completos del Analyst al Visualization-Specialist",
+  "OBLIGATORIO: Incluir sessionAttributes con formato correcto",
+  "OBLIGATORIO: Proporcionar gaming_data_processed del análisis previo",
+  "OBLIGATORIO: Especificar chart_type_requested basado en datos",
+  "OBLIGATORIO: Incluir kpis_context del análisis gaming",
+  "PROHIBIDO: Invocar Visualization-Specialist sin contexto completo",
+  "FALLAR si handshake no es compatible"
+]
+
+# Agent Compatibility Matrix
+agent_compatibility: {
+  "Zitro-Visualization-Specialist": {
+    "required_handshake": "visualization_handshake",
+    "required_context": ["gaming_data_processed", "chart_type_requested", "kpis_context", "audience_level"],
+    "data_source": "Zitro-Games-Analyst",
+    "validation": "mandatory"
+  }
+}
+
+# Error Handling for Agent Rejections
+agent_rejection_handling: [
+  "Si agente responde 'Sorry, I am unable to assist', verificar handshake",
+  "Validar que sessionAttributes contenga campos requeridos",
+  "Reintentar con handshake corregido",
+  "Proporcionar contexto faltante del agente previo",
+  "Fallar después de 2 intentos con handshake incorrecto"
+]

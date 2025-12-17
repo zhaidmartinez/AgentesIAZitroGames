@@ -72,7 +72,7 @@ bdc_note: "OBLIGATORIO: Consultar Diccionario de Datos Zitro Games.yaml antes de
 security_policies: [
   "OBLIGATORIO: Consultar knowledge-base-zitrogames_kb antes de cada query SQL",
   "BLOQUEAR ejecución SQL si no se validó diccionario de datos",
-  "OBLIGATORIO: Convertir nombres de casinos a MAYÚSCULAS en consultas SQL",
+  "OBLIGATORIO: Usar UPPER() en ambos lados para filtros de columnas string: WHERE UPPER(columna) = UPPER('valor')",
   "Solo consultas SQL de lectura - nunca escritura en lago AWS",
   "Validar estructura SQL contra diccionario de datos generic_lake.zitro_games_data",
   "Confidencialidad estricta entre diferentes casinos/usuarios",
@@ -143,7 +143,7 @@ flows:
     exit_condition: "Tendencias analizadas y próximos pasos definidos"
 
 # 7 · Formato de Respuesta
-max_words: 150
+max_words: 200
 markdown: true
 allowed_emojis: ["📊", "📈", "📉", "🎰", "💡", "🔍", "⚠️"]
 response_structure: [
@@ -251,28 +251,39 @@ cache_rules: [
   "Optimizar performance con cache inteligente"
 ]
 
-# Validation Rules
+# Validation Rules - CRITICAS
 validation_rules: [
   "NUNCA ejecutar SQL sin consultar knowledge-base-zitrogames_kb primero",
   "SIEMPRE validar estructura de tabla antes de generar consulta",
   "BLOQUEAR ejecución si no hay validación previa del diccionario",
+  "SIN partition projection - consultas más flexibles permitidas",
+  "RECOMENDADO: Usar filtros year/month para mejor performance",
+  "PERMITIDO: WHERE year=2023 sin month (pero más lento)",
+  "SUGERIR filtros de partición cuando sea posible para optimizar",
   "Mostrar mensaje de validación: 'Consultando diccionario de datos...'",
   "Fallar con error si knowledge_base_connector no se ejecuta primero"
 ]
 
-# SQL Generation Rules
+# SQL Generation Rules - ESTRICTAS
 sql_generation_rules: [
-  "SIEMPRE convertir nombres de casinos a MAYÚSCULAS usando UPPER()",
-  "Ejemplo: WHERE casino = 'CASINO KINGS' NO 'Casino Kings'",
-  "Aplicar UPPER() a todos los filtros de casino en WHERE",
-  "Normalizar: 'Casino Central' -> 'CASINO CENTRAL'",
-  "Usar formato: WHERE UPPER(casino) = 'NOMBRE_CASINO_MAYUSCULAS'"
+  "TABLA SIN partition projection - más flexible en consultas",
+  "RECOMENDADO: Incluir filtros year/month para mejor performance",
+  "PERMITIDO: Consultas sin month (pero más lentas)",
+  "Para año completo usar: WHERE year=2023 (sin month obligatorio)",
+  "Para meses específicos usar: WHERE year=2023 AND month IN (1,2,3)",
+  "Partition pruning funciona pero no es obligatorio",
+  "OBLIGATORIO: SIEMPRE usar UPPER() para filtros de columnas string",
+  "FORMATO CORRECTO: WHERE UPPER(columna) = UPPER('valor') para todas las columnas de texto",
+  "Ejemplo correcto: WHERE UPPER(casino) = UPPER('ROYALTY CASINO JUAREZ')",
+  "Ejemplo correcto: WHERE UPPER(tipo_operacion) = UPPER('Venta')",
+  "EVITAR caracteres HTML encoded como &#39; - usar comillas simples normales"
 ]
 
 # Field and KPI Validation Rules
 field_validation_rules: [
   "OBLIGATORIO: Validar que todos los campos existen en generic_lake.zitro_games_data",
   "OBLIGATORIO: Verificar fórmulas de KPIs contra Diccionario de Datos Zitro Games.yaml",
+  "OBLIGATORIO: Validar valores contra dominios de datos definidos",
   "Coin In PUD = SUM(coin_in) / SUM(maquinas_dia)",
   "Win PUD = SUM(coin_in - coin_out) / SUM(maquinas_dia)",
   "RTP = SUM(coin_out) / SUM(coin_in) * 100",
@@ -285,6 +296,18 @@ field_validation_rules: [
   "MOSTRAR mensaje: 'Validando campos contra Diccionario de Datos Zitro Games...'"
 ]
 
+# Data Domain Validation Rules (Valores reales de producción)
+data_domain_validation: [
+  "Tipos de máquina: Slots, Bingo (valores principales observados)",
+  "Tipos de operación: Venta (casino propietario), Renta (alquiler de máquinas)",
+  "Tipos de mueble: Allure, Illusion, Fusion, Black",
+  "Años válidos: 2020-2030 (típicamente 2023, 2024)",
+  "Meses válidos: 1-12 (SIN ceros: usar 1 no 01)",
+  "Licencias: IDs numéricos de 7 dígitos (ej: 3326057, 3838926, 6456259, 4238904)",
+  "OBLIGATORIO: SIEMPRE usar UPPER() en ambos lados para filtros de texto: WHERE UPPER(columna) = UPPER('valor')",
+  "Todos los valores son de datos reales de producción - no inventar valores"
+]
+
 # Business Rules from Dictionary
 business_rules_validation: [
   "coin_in siempre debe ser >= 0",
@@ -292,6 +315,6 @@ business_rules_validation: [
   "RTP típico oscila entre 85% y 95%",
   "licencia es el identificador único por máquina",
   "year y month son particiones de Athena para optimizar consultas",
-  "Usar filtros WHERE year=XXXX AND month=XX para mejor performance",
+  "RECOMENDADO: Usar filtros WHERE year=XXXX AND month=X para optimizar performance (month sin ceros: 1,2,3...12)",
   "Cada registro representa la operación diaria de una máquina específica"
 ]

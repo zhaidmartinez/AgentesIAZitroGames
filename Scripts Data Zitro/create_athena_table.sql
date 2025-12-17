@@ -7,7 +7,7 @@ USE generic_lake;
 -- Eliminar tabla si existe (para recrear con nueva estructura)
 DROP TABLE IF EXISTS zitro_games_data;
 
--- Crear tabla zitro_games_data particionada
+-- Crear tabla zitro_games_data SIN partition projection (ESTABLE)
 CREATE EXTERNAL TABLE IF NOT EXISTS zitro_games_data (
     casino string,
     ciudad string,
@@ -31,27 +31,34 @@ PARTITIONED BY (
     month int
 )
 STORED AS PARQUET
-LOCATION 's3://xami-power-ups-tmp-data-athena/zitro-games/zitro_games_data/'
-TBLPROPERTIES (
-    'projection.enabled' = 'true',
-    'projection.year.type' = 'integer',
-    'projection.year.range' = '2020,2030',
-    'projection.month.type' = 'integer', 
-    'projection.month.range' = '1,12',
-    'projection.month.digits' = '2',
-    'storage.location.template' = 's3://xami-power-ups-tmp-data-athena/zitro-games/zitro_games_data/year=${year}/month=${month}/'
-);
+LOCATION 's3://xami-power-ups-tmp-data-athena/zitro-games/zitro_games_data/';
 
--- Reparar particiones (si es necesario)
+-- Descubrir particiones manualmente
 MSCK REPAIR TABLE zitro_games_data;
 
--- Consulta de ejemplo
+-- Verificar que la tabla se creó correctamente
+DESCRIBE zitro_games_data;
+
+-- Consultas de ejemplo (ahora más flexibles)
+
+-- Consulta anual completa (ahora permitida)
 SELECT 
     estado,
     COUNT(*) as total_registros,
     SUM(coin_in) as total_coin_in,
     AVG(coin_in/maquinas_dia) as coin_in_pud
 FROM zitro_games_data 
-WHERE year = 2023 AND month = 1
+WHERE year = 2023
 GROUP BY estado
 ORDER BY total_coin_in DESC;
+
+-- Consulta con casino específico (ahora estable)
+SELECT 
+    month,
+    tipo_maquina,
+    ROUND(SUM(coin_in) / SUM(maquinas_dia), 2) AS coin_in_pud,
+    ROUND(SUM(partidas) / SUM(maquinas_dia), 2) AS games_pud
+FROM zitro_games_data
+WHERE UPPER(casino) = 'CASINO KINGS' AND year = 2023
+GROUP BY month, tipo_maquina
+ORDER BY month, tipo_maquina;
