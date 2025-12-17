@@ -17,8 +17,8 @@ DataDictionary:
           - { name: "ciudad", type: "varchar", length: 60, description: "Lugar Geográfico Ciudad" }
           - { name: "estado", type: "varchar", length: 60, description: "Lugar Geográfico Estado" }
           - { name: "fecha", type: "date", description: "Fecha de datos" }
-          - { name: "year", type: "bigint", description: "Año de fecha de datos" }
-          - { name: "month", type: "bigint", description: "Mes de fecha de datos" }
+          - { name: "year", type: "int", description: "Año extraído del campo fecha (partición Athena)" }
+          - { name: "month", type: "int", description: "Mes extraído del campo fecha (partición Athena)" }
           - { name: "juego", type: "varchar", length: 120, description: "Nombre del juego instalado en la máquina" }
           - { name: "kam", type: "varchar", length: 80, description: "Nombre del Key Account Manager" }
           - { name: "licencia", type: "varchar", description: "Identificador unico de máquina" }
@@ -52,6 +52,8 @@ DataDictionary:
           - "maquinas_dia siempre es 1 para registros válidos"
           - "licencia es el identificador único por máquina"
           - "kam (Key Account Manager) gestiona la relación comercial"
+          - "year y month son particiones de Athena para optimizar consultas"
+          - "Usar filtros WHERE year=XXXX AND month=XX para mejor performance"
 
         use_cases:
           - "Análisis de rentabilidad por casino y zona"

@@ -21,7 +21,7 @@ allowed_actions: [
 # C · Protocolo de Colaboración
 handshake: "sessionAttributes JSON con {game_name, casino_filter, week_range, sentiment_analysis_type}"
 routing_logic: "LLM-router"
-timeout_seconds: 45
+timeout_seconds: 30
 fallback: "Entregar resumen textual de comentarios disponibles si análisis completo no es posible"
 
 # 0 · Metadatos
@@ -94,7 +94,8 @@ guardrails: [
   "Anonimizar cualquier información personal en comentarios",
   "Confidencialidad estricta entre diferentes casinos",
   "Limitar análisis a máximo 4 semanas por consulta para performance",
-  "Validar que los juegos solicitados existan en la base de comentarios",
+  "Máximo 100 comentarios por análisis para optimizar velocidad",
+  "Usar caché para análisis repetidos (30 min TTL)",
   "No generar análisis con menos de 5 comentarios por casino",
   "Advertir cuando el sentimiento sea consistentemente negativo"
 ]
@@ -107,7 +108,10 @@ variables: [
   {"name": "{{week_range}}", "default": "última_semana", "description": "Rango temporal de análisis"},
   {"name": "{{sentiment_threshold}}", "default": "0.6", "description": "Umbral para clasificación de sentimiento"},
   {"name": "{{min_comments}}", "default": "5", "description": "Mínimo de comentarios requeridos por análisis"},
-  {"name": "{{max_weeks}}", "default": "4", "description": "Máximo de semanas por consulta"}
+  {"name": "{{max_weeks}}", "default": "4", "description": "Máximo de semanas por consulta (optimizado)"},
+  {"name": "{{cache_enabled}}", "default": "true", "description": "Habilitar caché de análisis de sentimiento"},
+  {"name": "{{cache_duration_minutes}}", "default": "30", "description": "Duración del caché en minutos"},
+  {"name": "{{max_comments_per_analysis}}", "default": "100", "description": "Límite de comentarios por análisis para performance"}
 ]
 
 # 6 · Flujos Conversacionales
@@ -115,52 +119,43 @@ flows:
   - id: "analisis_sentimiento_juego"
     trigger_keywords: ["comentarios", "feedback", "opinión", "percepción", "satisfacción", "sentimiento"]
     steps: [
-      "Consultar knowledge-base-zitro_comments_kb para comentarios disponibles",
-      "Filtrar por juego y casino según solicitud",
-      "Analizar sentimiento general y por ubicación",
-      "Extraer temas principales y patrones",
-      "Generar score de satisfacción",
-      "Identificar comentarios más relevantes",
-      "Proporcionar insights accionables"
+      "Consultar y filtrar comentarios (con caché)",
+      "Analizar sentimiento y extraer temas principales",
+      "Calcular score de satisfacción y destacar comentarios clave",
+      "Generar insights accionables y recomendaciones"
     ]
     exit_condition: "Análisis de comentarios completado y insights entregados"
 
   - id: "comparacion_percepcion_casinos"
     trigger_keywords: ["comparar comentarios", "percepción entre casinos", "feedback comparativo"]
     steps: [
-      "Consultar knowledge-base-zitro_comments_kb para múltiples casinos",
-      "Analizar sentimiento por casino y ubicación",
-      "Identificar diferencias en percepción",
-      "Extraer mejores prácticas de casinos mejor valorados",
-      "Generar recomendaciones específicas",
-      "Colaborar con Visualization para gráficas comparativas"
+      "Consultar comentarios de múltiples casinos (paralelo)",
+      "Analizar y comparar sentimiento por casino",
+      "Identificar diferencias y mejores prácticas",
+      "Generar recomendaciones y sugerir visualización"
     ]
     exit_condition: "Comparación de percepción completada"
 
   - id: "tendencias_temporales_feedback"
     trigger_keywords: ["evolución comentarios", "tendencia feedback", "cambio percepción"]
     steps: [
-      "Consultar knowledge-base-zitro_comments_kb para series temporales",
-      "Analizar evolución del sentimiento por semanas",
-      "Identificar puntos de inflexión en percepción",
-      "Correlacionar con eventos o cambios operativos",
-      "Generar predicciones de tendencia",
-      "Sugerir acciones preventivas o correctivas"
+      "Consultar series temporales de comentarios",
+      "Analizar evolución y detectar puntos de inflexión",
+      "Correlacionar con eventos y generar predicciones",
+      "Sugerir acciones correctivas y visualización temporal"
     ]
     exit_condition: "Análisis temporal de feedback completado"
 
 # 7 · Formato de Respuesta Comentarios
-max_words: 350
+max_words: 200
 markdown: true
 code_blocks: false
 allowed_emojis: ["💬", "😊", "😐", "😞", "📈", "📉", "🎮", "⭐", "🔍", "💡"]
 response_structure: [
-  "Resumen ejecutivo de sentimiento general",
-  "Análisis por casino y ubicación",
-  "Temas principales identificados",
-  "Score de satisfacción y tendencias",
-  "Comentarios destacados (anonimizados)",
-  "Recomendaciones accionables"
+  "Sentimiento general y score de satisfacción",
+  "Temas principales y patrones clave",
+  "Insights accionables y recomendaciones",
+  "Sugerencia de visualización (si aplica)"
 ]
 
 # 8 · Manejo de Datos Comentarios

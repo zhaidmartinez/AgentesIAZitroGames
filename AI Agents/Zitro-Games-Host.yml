@@ -21,41 +21,48 @@ allowed_actions: [
 # C · Protocolo de Colaboración
 handshake: "sessionAttributes JSON con {casino_access, user_role, analysis_type, collaboration_needed}"
 routing_logic: "LLM-router"
-timeout_seconds: 30
+timeout_seconds: 180
 fallback: "Derivar a Jorge - Equipo de Análisis Zitro Games"
 max_collaboration_agents: 3
 sequential_routing: true
+note_routing: "Sequential para garantizar dependencias. Considerar parallel para KPIs simples"
 
-# D · Routing Rules
+# D · Routing Rules (ordenadas por prioridad: 0=máxima)
 routing_rules:
-  - intent: "^(comentarios|feedback|opinion|percepcion|satisfaccion|jugadores|experiencia|sentimiento)$"
-    route_to: "Zitro-Comments-Analyst"
-    priority: 0.5
-    visualization: "evaluate_if_beneficial"
-    post_analysis_decision: "suggest_visualization_if_helpful"
-  - intent: "^(KPIs|metricas|rendimiento|coin_in|rtp|ocupacion|analisis_datos)$"
-    route_to: "Zitro-Games-Analyst"
-    priority: 1
-    visualization: "evaluate_if_beneficial"
-    post_analysis_decision: "suggest_visualization_if_helpful"
-  - intent: "^(comparar|vs|ranking|mejor|peor|tendencia|evolución|distribución)$"
-    route_to: "multi_agent_workflow"
-    priority: 1.5
-    workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
-    reason: "beneficial_for_comparison_or_trends"
-  - intent: "^(grafica|visual|chart|dashboard|comparar_visual|generar_grafica|crear_chart|mostrar_grafico)$"
-    route_to: "multi_agent_workflow"
-    priority: 2
-    workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
-    primary_output_agent: "Zitro-Visualization-Specialist"
-  - intent: "^(reporte|email|enviar|compartir|comunicar)$"
-    route_to: "Zitro-Communication-Manager"
-    priority: 3
-    requires_data_from: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
+  # Prioridad 0: Análisis completo (máxima prioridad)
   - intent: "^(analisis_completo|dashboard_completo|reporte_ejecutivo)$"
     route_to: "multi_agent_workflow"
     priority: 0
     workflow: ["Zitro-Games-Analyst", "Zitro-Comments-Analyst", "Zitro-Visualization-Specialist", "Zitro-Communication-Manager"]
+  
+  # Prioridad 1: Visualización explícita
+  - intent: "^(grafica|visual|chart|dashboard|generar_grafica|crear_chart|mostrar_grafico)$"
+    route_to: "multi_agent_workflow"
+    priority: 1
+    workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
+    primary_output_agent: "Zitro-Visualization-Specialist"
+  
+  # Prioridad 2: Comparaciones/Tendencias (auto-visualización)
+  - intent: "^(comparar|vs|ranking|mejor|peor|tendencia|evolución|distribución)$"
+    route_to: "multi_agent_workflow"
+    priority: 2
+    workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
+  
+  # Prioridad 3: KPIs/Métricas (evaluación inteligente de visualización)
+  - intent: "^(KPIs|metricas|rendimiento|coin_in|rtp|ocupacion|analisis_datos)$"
+    route_to: "Zitro-Games-Analyst"
+    priority: 3
+  
+  # Prioridad 4: Comentarios/Feedback
+  - intent: "^(comentarios|feedback|opinion|percepcion|satisfaccion|jugadores|experiencia|sentimiento)$"
+    route_to: "Zitro-Comments-Analyst"
+    priority: 4
+  
+  # Prioridad 5: Reportes/Email
+  - intent: "^(reporte|email|enviar|compartir|comunicar)$"
+    route_to: "Zitro-Communication-Manager"
+    priority: 5
+    requires_data_from: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
 
 # 0 · Metadatos
 agent_name: "Zitro-Games-Host"
@@ -76,21 +83,26 @@ catch_phrases: [
   "Análisis completado - ¿Te gustaría también una representación visual?"
 ]
 
-# Visualization Control
+visualization_response_rules: [
+  "Cuando recibas <br:payload> de Zitro-Visualization-Specialist, incluye TODO el contenido",
+  "NO uses <br:share_payload> - copia el código HTML completo",
+  "El usuario necesita ver el código JavaScript/HTML directamente",
+  "Incluye el código entre ``` html y ``` para formato correcto"
+]
+
+# Visualization Control (complementa routing_rules)
 visualization_policy:
   default_mode: "intelligent_decision"
-  explicit_triggers: ["grafica", "gráfico", "chart", "visual", "dashboard", "generar grafica", "crear chart", "mostrar gráfico", "quiero ver", "representa gráficamente"]
-  beneficial_scenarios: ["comparar", "tendencia", "evolución", "ranking", "distribución", "correlación", "múltiples casinos", "series temporales", "vs", "mejor", "peor"]
-  necessary_scenarios: ["dashboard", "reporte ejecutivo", "presentación", "análisis completo"]
   auto_suggest_when_beneficial: true
-  never_auto_generate: false
+  note: "Routing rules manejan triggers explícitos. Esta política aplica para sugerencias inteligentes post-análisis"
 
 # Response Handling
 response_forwarding:
-  visualization_requests: "forward_complete_code_from_specialist"
+  visualization_requests: "include_full_payload_content"
   ensure_code_delivery: true
-  fallback_if_no_code: "request_text_alternative_from_specialist"
-  default_analysis: "text_based_insights_only"
+  expand_payload_content: true
+  show_html_code_directly: true
+  never_use_share_payload_reference: true
 
 # 2 · Objetivo de Negocio & Público
 goal: "Orquestar análisis gaming integral conectando usuarios con agentes especializados según necesidad específica"
@@ -131,6 +143,8 @@ coordination_flows:
     success_criteria: "analisis_completado_con_decision_visual_inteligente"
     primary_response_from: "Zitro-Games-Analyst"
     secondary_response_from: "Zitro-Visualization-Specialist"
+    handle_truncated_responses: true
+    request_completion_if_truncated: true
     
   - id: "analisis_solo_datos"
     trigger: "usuario solicita análisis simple sin necesidad de visualización"
@@ -143,18 +157,22 @@ coordination_flows:
   - id: "visualizacion_gaming"
     trigger: "usuario solicita EXPLÍCITAMENTE gráfica o visualización"
     sequence: [
-      {"agent": "Zitro-Games-Analyst", "task": "generar_datos_para_visualizacion", "timeout": 45, "output_required": true},
-      {"agent": "Zitro-Visualization-Specialist", "task": "generar_codigo_grafica", "timeout": 60, "depends_on": "Zitro-Games-Analyst", "return_code": true}
+      {"agent": "Zitro-Games-Analyst", "task": "generar_datos_para_visualizacion", "timeout": 60, "output_required": true},
+      {"agent": "Zitro-Visualization-Specialist", "task": "generar_codigo_grafica", "timeout": 45, "depends_on": "Zitro-Games-Analyst", "return_code": true}
     ]
     success_criteria: "codigo_grafica_generado_exitosamente"
     primary_response_from: "Zitro-Visualization-Specialist"
+    preserve_visualization_code: true
+    include_payload_in_response: true
+    handle_truncated_responses: true
+    request_completion_if_truncated: true
     rollback_strategy: "generar_tabla_textual_como_alternativa"
 
   - id: "analisis_completo_gaming"
     trigger: "usuario solicita análisis integral"
     sequence: [
       {"agent": "Zitro-Games-Analyst", "task": "generar_kpis_y_insights", "timeout": 60},
-      {"agent": "Zitro-Visualization-Specialist", "task": "crear_visualizaciones", "timeout": 45, "depends_on": "Zitro-Games-Analyst"},
+      {"agent": "Zitro-Visualization-Specialist", "task": "crear_visualizaciones", "timeout": 30, "depends_on": "Zitro-Games-Analyst"},
       {"agent": "Zitro-Communication-Manager", "task": "formatear_y_enviar", "timeout": 30, "depends_on": ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]}
     ]
     success_criteria: "todos_los_agentes_completan_exitosamente"
@@ -165,9 +183,25 @@ monitoring:
   health_check_interval: 30
   performance_metrics: ["response_time", "success_rate", "collaboration_efficiency"]
   alert_thresholds:
-    response_time: "> 60 segundos"
+    response_time: "> 120 segundos"
     error_rate: "> 5%"
     agent_unavailable: "true"
+
+# Payload Preservation Rules
+payload_rules: [
+  "INCLUIR el contenido completo de <br:payload> en respuesta final",
+  "NO usar <br:share_payload> - incluir código HTML completo",
+  "COPIAR todo el contenido entre <br:payload> y </br:payload>",
+  "Mostrar código JavaScript/HTML directamente al usuario"
+]
+
+# Truncated Response Handling
+truncated_response_rules: [
+  "Si respuesta de Zitro-Visualization-Specialist está cortada, solicitar completar",
+  "Detectar respuestas que terminan abruptamente sin </br:payload>",
+  "Pedir al agente que complete los insights y código faltante",
+  "Asegurar que el código HTML esté completo antes de responder al usuario"
+]
 
 # 11 · Errores & Fallback
 default_error: "Hay un problema con la coordinación del equipo. Te conecto directamente con Jorge del equipo de análisis."

@@ -17,8 +17,8 @@ allowed_actions: [
 # C · Protocolo de Colaboración
 handshake: "sessionAttributes JSON con {insights_data, charts_urls, recipient_info, urgency_level}"
 routing_logic: "manual"
-timeout_ms: 6000
-fallback: "Generar reporte en formato texto y sugerir envío manual"
+timeout_seconds: 15
+fallback: "Generar reporte en formato texto optimizado y sugerir envío manual"
 
 # 0 · Metadatos
 agent_name: "Zitro-Communication-Manager"
@@ -45,17 +45,24 @@ audiences: [
   "Equipos técnicos - datos detallados"
 ]
 
+# 5 · Variables de Optimización
+variables:
+  use_templates: true
+  cache_formatted_content: true
+  cache_duration_minutes: 15
+  max_recipients_per_email: 10
+  compress_attachments: true
+  async_sending: true
+  template_cache_enabled: true
+
 # 6 · Flujos Conversacionales
 flows:
   - id: "envio_reporte_ejecutivo"
     trigger_keywords: ["enviar", "reporte", "email", "compartir"]
     steps: [
-      "Recibir insights y gráficas de agentes previos",
-      "Identificar audiencia y nivel de detalle",
-      "Formatear contenido con diseño atractivo", 
-      "Generar email HTML responsivo",
-      "Enviar via power-up existente",
-      "Confirmar entrega exitosa"
+      "Recibir datos y formatear para audiencia específica",
+      "Generar email HTML optimizado y enviar",
+      "Confirmar entrega y proporcionar tracking"
     ]
     exit_condition: "Email enviado y entrega confirmada"
 
@@ -66,21 +73,28 @@ tools:
     inputs: ["html_content", "recipient_list", "subject", "attachments"]
     outputs: ["delivery_status", "tracking_id", "open_rate"]
     auth: "existing_email_credentials"
+    optimizations: ["async_sending", "batch_processing", "compression"]
 
-  - name: "html_formatter"
-    description: "Generador de HTML responsive para emails"
-    inputs: ["insights_text", "charts_urls", "branding_config"]
+  - name: "html_formatter_optimized"
+    description: "Generador rápido de HTML con templates pre-compilados"
+    inputs: ["insights_text", "charts_urls", "template_type"]
     outputs: ["formatted_html", "plain_text_fallback"]
+    features: ["template_cache", "lazy_loading", "minified_output"]
+
+  - name: "template_manager"
+    description: "Gestor de templates pre-compilados por audiencia"
+    inputs: ["audience_type", "content_type"]
+    outputs: ["optimized_template", "styling_config"]
+    cache_enabled: true
 
 # 7 · Formato de Respuesta
 max_words: 200
 markdown: true
 allowed_emojis: ["📧", "✉️", "📋", "✅", "📤"]
 response_structure: [
-  "Confirmación de audiencia objetivo",
-  "Resumen del contenido a enviar", 
-  "Estado del envío",
-  "Próximos pasos sugeridos"
+  "Estado del envío y destinatarios",
+  "Resumen del contenido enviado",
+  "Tracking ID y próximos pasos"
 ]
 
 # 8 · Manejo de PII
@@ -88,5 +102,32 @@ consent_phrase: "Los reportes contienen datos confidenciales del casino y se env
 pii_restrictions: [
   "Validar permisos del destinatario antes de envío",
   "No compartir datos entre diferentes casinos/operadores", 
-  "Marcar emails como confidenciales"
+  "Marcar emails como confidenciales",
+  "Usar envío asíncrono para mejor performance",
+  "Comprimir adjuntos automáticamente"
 ]
+
+# 10 · Configuración de Performance
+performance_config:
+  email_templates:
+    executive_summary: "template_exec_cached"
+    operational_metrics: "template_ops_cached"
+    technical_details: "template_tech_cached"
+  
+  optimization_features:
+    - "pre_compiled_templates"
+    - "async_email_sending"
+    - "attachment_compression"
+    - "recipient_batching"
+    - "html_minification"
+    - "image_optimization"
+  
+  cache_settings:
+    template_cache_ttl: 60  # minutos
+    content_cache_ttl: 15   # minutos
+    max_cache_size: "50MB"
+  
+  limits:
+    max_email_size: "10MB"
+    max_recipients_batch: 10
+    timeout_per_email: 5    # segundos

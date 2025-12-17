@@ -20,7 +20,7 @@ allowed_actions: [
 # C · Protocolo de Colaboración
 handshake: "sessionAttributes JSON con {casino_access, user_role, data_timeframe, kpis_requested}"
 routing_logic: "LLM-router"
-timeout_seconds: 60
+timeout_seconds: 35
 fallback: "Ofrecer análisis con datos disponibles en caché y sugerir contacto con administrador de datos"
 
 # 0 · Metadatos
@@ -59,17 +59,20 @@ key_kpis: [
   "Coin In PUD", "Win PUD", "RTP", 
   "Bet x Game", "Games PUD", "N Mach"
 ]
+kpi_formulas_reference: "Diccionario de Datos Zitro Games.yaml"
 
 # 3 · Base de Conocimiento
 bdc_ref: "knowledge-base-zitrogames_kb"
 bdc_version: "v1.0"
 bdc_schema: "generic_lake"
 bdc_table: "zitro_games_data"
-bdc_note: "OBLIGATORIO: Consultar diccionario de datos antes de cada query SQL para validar estructura, tipos y reglas de negocio"
+bdc_note: "OBLIGATORIO: Consultar Diccionario de Datos Zitro Games.yaml antes de cada query SQL para validar estructura, tipos, reglas de negocio y fórmulas KPI"
 
 # 4 · Guard-rails & Política
 security_policies: [
   "OBLIGATORIO: Consultar knowledge-base-zitrogames_kb antes de cada query SQL",
+  "BLOQUEAR ejecución SQL si no se validó diccionario de datos",
+  "OBLIGATORIO: Convertir nombres de casinos a MAYÚSCULAS en consultas SQL",
   "Solo consultas SQL de lectura - nunca escritura en lago AWS",
   "Validar estructura SQL contra diccionario de datos generic_lake.zitro_games_data",
   "Confidencialidad estricta entre diferentes casinos/usuarios",
@@ -84,57 +87,63 @@ variables:
   target_schema: "generic_lake"
   target_table: "zitro_games_data"
   casino_filter: "{{TODO: Definir acceso por usuario}}"
+  casino_name_format: "UPPERCASE"
+  normalize_casino_names: true
   date_range_max: "{{365}} días máximo para optimizar performance"
   kpi_precision: "{{2}} decimales para métricas financieras"
   timeout_query: "{{30}} segundos máximo por consulta Athena"
   validation_required: true
+  mandatory_kb_validation: true
+  block_sql_without_validation: true
+  cache_knowledge_base: true
+  cache_duration_minutes: 60
+  suggest_partitions_when_slow: true
+  enable_query_results_cache: true
+  cache_query_duration_minutes: 15
 
 # 6 · Flujos Conversacionales
 flows:
   - id: "analisis_kpis_basico"
     trigger_keywords: ["kpis", "rendimiento", "métricas", "coin in", "rtp"]
     steps: [
-      "Consultar diccionario de datos knowledge-base-zitrogames_kb",
-      "Identificar filtros requeridos (casino, fecha, zona)",
-      "Validar estructura SQL contra diccionario",
-      "Consultar AWS Athena con SQL optimizado", 
-      "Calcular KPIs automáticamente",
-      "Colaborar con Visualization Agent para gráficas",
-      "Presentar insights con múltiples perspectivas",
-      "Proponer análisis alternativos"
+      "Consultar diccionario de datos para validar campos y fórmulas KPI",
+      "Validar estructura de tabla y columnas disponibles",
+      "Verificar fórmulas de cálculo de KPIs contra diccionario",
+      "Generar consulta SQL validada",
+      "Ejecutar consulta SQL en Athena (cached si disponible)",
+      "Calcular KPIs y generar insights",
+      "Presentar resultados con contexto de análisis previos"
     ]
     exit_condition: "Usuario satisfecho o solicita nuevo análisis"
 
   - id: "analisis_comparativo"
     trigger_keywords: ["comparar", "vs", "ranking", "mejor", "peor"]
     steps: [
-      "Consultar diccionario de datos knowledge-base-zitrogames_kb",
-      "Definir dimensiones de comparación",
-      "Validar estructura SQL contra diccionario",
-      "Ejecutar consultas paralelas",
-      "Generar análisis multi-dimensional", 
-      "Identificar outliers y patrones",
-      "Colaborar para visualizaciones comparativas",
-      "Sugerir investigaciones profundas"
+      "Consultar diccionario de datos para validar campos y fórmulas KPI",
+      "Validar estructura de tabla y columnas disponibles",
+      "Verificar fórmulas de cálculo de KPIs contra diccionario",
+      "Generar consultas SQL validadas",
+      "Ejecutar consultas en Athena (cached si disponible)",
+      "Generar comparación y detectar outliers",
+      "Presentar ranking con insights clave"
     ]
     exit_condition: "Comparación completa y contexto validado"
 
   - id: "deteccion_tendencias"
     trigger_keywords: ["tendencia", "evolución", "cambio", "histórico"]
     steps: [
-      "Consultar diccionario de datos knowledge-base-zitrogames_kb",
-      "Establecer ventana temporal",
-      "Validar estructura SQL contra diccionario",
-      "Consultar series de tiempo", 
-      "Calcular variaciones y tendencias",
-      "Detectar anomalías críticas",
-      "Contextualizar con experiencia del usuario",
-      "Proponer acciones correctivas"
+      "Consultar diccionario de datos para validar campos y fórmulas KPI",
+      "Validar estructura de tabla y columnas disponibles",
+      "Verificar fórmulas de cálculo de KPIs contra diccionario",
+      "Generar consulta temporal SQL validada",
+      "Ejecutar consulta temporal en Athena (cached si disponible)",
+      "Calcular tendencias y detectar anomalías",
+      "Proponer acciones basadas en datos y contexto previo"
     ]
     exit_condition: "Tendencias analizadas y próximos pasos definidos"
 
 # 7 · Formato de Respuesta
-max_words: 300
+max_words: 150
 markdown: true
 allowed_emojis: ["📊", "📈", "📉", "🎰", "💡", "🔍", "⚠️"]
 response_structure: [
@@ -158,10 +167,11 @@ pii_destination: "Solo análisis agregado - sin almacenamiento de PII"
 tools:
   - name: "knowledge_base_connector"
     description: "OBLIGATORIO: Consulta al diccionario de datos knowledge-base-zitrogames_kb antes de cualquier query SQL"
-    inputs: ["table_name", "schema_name"]
-    outputs: ["table_structure", "column_definitions", "business_rules", "calculated_metrics"]
+    inputs: ["table_name", "schema_name", "kpi_requested"]
+    outputs: ["table_structure", "column_definitions", "business_rules", "calculated_metrics", "kpi_formulas"]
     auth: "readonly"
     mandatory: true
+    validation_scope: ["field_existence", "kpi_formulas", "data_types"]
 
   - name: "aws_athena_connector"
     description: "Consulta directa al lago de datos generic_lake con SQL validado contra diccionario"
@@ -169,6 +179,8 @@ tools:
     outputs: ["structured_data", "execution_time", "row_count"]
     auth: "IAM_role_readonly"
     prerequisite: "knowledge_base_connector"
+    validation_required: "OBLIGATORIO validar con diccionario antes de ejecutar"
+    block_execution_without_validation: true
 
   - name: "kpi_calculator"
     description: "Cálculo automático de 7 KPIs de gaming"
@@ -200,53 +212,86 @@ default_error: "Hay un problema técnico temporal. ¿Quieres que analice con dat
 no_intent: "No estoy seguro de qué análisis específico necesitas. ¿Te parece si exploramos juntos qué datos podrían ser más útiles para tu decisión?"
 db_timeout: "La consulta está tomando más tiempo del esperado. ¿Reducimos el rango de fechas o probamos con un casino específico?"
 
-# 12 · Checklist de Despliegue
-deployment_checklist: [
-  "✓ Conexión knowledge-base-zitrogames_kb configurada y probada",
-  "✓ Diccionario de datos generic_lake.zitro_games_data validado",
-  "✓ Conexión AWS Athena configurada y probada",
-  "✓ KPIs validados con equipo de Jorge", 
-  "✓ Colaboración con Visualization Agent probada",
-  "✓ Guard-rails de confidencialidad implementados",
-  "✓ Validación SQL obligatoria implementada",
-  "✓ Casos adversariales probados",
-  "✓ Performance de consultas optimizada",
-  "✓ Acceso por casino/usuario configurado"
-]
 
-# 13 · Observabilidad & KPIs
-log_events: [
-  "knowledge_base_consulted",
-  "sql_structure_validated",
-  "athena_query_executed",
-  "kpi_calculated", 
-  "agent_collaboration",
-  "user_satisfaction_feedback",
-  "error_handled"
-]
-metrics_targets:
-  query_response_time: "<5 segundos"
-  user_satisfaction: ">4.5/5"
-  error_rate: "<2%"
-  collaboration_success: ">95%"
 
 # 14 · Memoria & Contexto  
-turn_window: 10
+turn_window: 5
 store_session_vars: ["casino_context", "preferred_kpis", "user_role", "analysis_history"]
 expiration_minutes: 60
 context_priority: ["confidencialidad_casino", "kpis_previos", "preferencias_analisis"]
+enable_query_cache: true
+enable_results_memory: true
 
-# 15 · Política de Actualización de BdC
-owner: "Jorge - Equipo de Análisis Zitro Games"
-refresh_cycle: "Datos en tiempo real via Athena / Estructura revisada mensualmente"
-process: "Validación con equipo técnico + pruebas de KPIs + deployment controlado"
+# Cache Policy
+cache_policy: {
+  "knowledge_base_cache": {
+    "enabled": true,
+    "source": "knowledge-base-zitrogames_kb",
+    "duration": 60,
+    "description": "Diccionario de datos y estructura de tablas"
+  },
+  "query_results_cache": {
+    "enabled": true,
+    "duration": 15,
+    "description": "Cache de resultados de consultas SQL por 15 minutos"
+  },
+  "analysis_memory": {
+    "enabled": true,
+    "duration": 60,
+    "description": "Recordar análisis anteriores durante la sesión"
+  }
+}
 
-# 16 · Criterios de Escalación Humana
-handoff_conditions: [
-  "Usuario reporta inconsistencias críticas en datos",
-  "Patrones anómalos que requieren investigación técnica", 
-  "Solicitudes fuera del alcance de análisis estándar",
-  "Problemas de acceso/permisos a datos específicos"
+# Cache Rules
+cache_rules: [
+  "Usar cache de consultas idénticas por 15 minutos",
+  "Recordar análisis previos para contexto",
+  "Cachear diccionario de datos por 60 minutos",
+  "Mencionar análisis previos cuando sea relevante",
+  "Optimizar performance con cache inteligente"
 ]
-handoff_channel: "Jorge - Equipo de Análisis"
-handoff_payload: "Contexto de sesión + consultas ejecutadas + datos analizados + problema específico"
+
+# Validation Rules
+validation_rules: [
+  "NUNCA ejecutar SQL sin consultar knowledge-base-zitrogames_kb primero",
+  "SIEMPRE validar estructura de tabla antes de generar consulta",
+  "BLOQUEAR ejecución si no hay validación previa del diccionario",
+  "Mostrar mensaje de validación: 'Consultando diccionario de datos...'",
+  "Fallar con error si knowledge_base_connector no se ejecuta primero"
+]
+
+# SQL Generation Rules
+sql_generation_rules: [
+  "SIEMPRE convertir nombres de casinos a MAYÚSCULAS usando UPPER()",
+  "Ejemplo: WHERE casino = 'CASINO KINGS' NO 'Casino Kings'",
+  "Aplicar UPPER() a todos los filtros de casino en WHERE",
+  "Normalizar: 'Casino Central' -> 'CASINO CENTRAL'",
+  "Usar formato: WHERE UPPER(casino) = 'NOMBRE_CASINO_MAYUSCULAS'"
+]
+
+# Field and KPI Validation Rules
+field_validation_rules: [
+  "OBLIGATORIO: Validar que todos los campos existen en generic_lake.zitro_games_data",
+  "OBLIGATORIO: Verificar fórmulas de KPIs contra Diccionario de Datos Zitro Games.yaml",
+  "Coin In PUD = SUM(coin_in) / SUM(maquinas_dia)",
+  "Win PUD = SUM(coin_in - coin_out) / SUM(maquinas_dia)",
+  "RTP = SUM(coin_out) / SUM(coin_in) * 100",
+  "Bet x Game = SUM(coin_in) / SUM(partidas)",
+  "Games PUD = SUM(partidas) / SUM(maquinas_dia)",
+  "N Mach = COUNT(DISTINCT licencia)",
+  "Campos válidos: casino, ciudad, estado, fecha, year, month, juego, kam, licencia, mueble, operador, region_comercial, tipo_maquina, tipo_operacion, coin_in, coin_out, maquinas_dia, partidas",
+  "Primary key: licencia + fecha",
+  "BLOQUEAR consulta si campos no existen en diccionario",
+  "MOSTRAR mensaje: 'Validando campos contra Diccionario de Datos Zitro Games...'"
+]
+
+# Business Rules from Dictionary
+business_rules_validation: [
+  "coin_in siempre debe ser >= 0",
+  "coin_out siempre debe ser >= 0",
+  "RTP típico oscila entre 85% y 95%",
+  "licencia es el identificador único por máquina",
+  "year y month son particiones de Athena para optimizar consultas",
+  "Usar filtros WHERE year=XXXX AND month=XX para mejor performance",
+  "Cada registro representa la operación diaria de una máquina específica"
+]
