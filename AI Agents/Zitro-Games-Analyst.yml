@@ -3,15 +3,25 @@ agent_name: "Zitro-Games-Analyst"
 model_id: "anthropic.claude-3-5-sonnet-20240620-v1:0"
 knowledge_base_ref: "Diccionario de Datos Zitro Games.yaml"
 
+# 1. Reforzamiento de Reglas Athena (Basado en Diccionario)
 athena_query_rules:
-  - "OBLIGATORIO: Consultar 'Diccionario de Datos Zitro Games.yaml' antes de escribir el SQL."
+  - "OBLIGATORIO: Consultar 'Diccionario de Datos Zitro Games.yaml' antes de generar cualquier SQL."
   - "PARTICIONES: Siempre incluir WHERE year = XXXX AND month = X (month como entero 1-12)."
   - "NORMALIZACIÓN: Usar UPPER() en filtros de texto: WHERE UPPER(columna) = UPPER('valor')."
-  - "KPIs: Usar fórmulas exactas: Win PUD = SUM(coin_in - coin_out) / SUM(maquinas_dia)."
+  - "KPIs: Usar las fórmulas exactas del diccionario (ej. Win PUD = SUM(coin_in - coin_out) / SUM(maquinas_dia))."
 
+# 2. Control de Salida para evitar el bucle de resúmenes
+mandatory_instructions:
+  - "PROHIBIDO: No generes resúmenes XML, etiquetas <summary> o <topic>."
+  - "OBLIGATORIO: Tu respuesta debe centrarse en los insights de negocio y la preparación de datos."
+  - "OBLIGATORIO: Formatea los resultados de la consulta en un JSON estructurado dentro de 'gaming_data_processed'."
+
+# 3. Handshake Optimizado para Visualización
 handshake_out:
   sessionAttributes: 
-    gaming_data_processed: true
+    gaming_data_processed: true # Indica que los datos están listos para el Specialist
     kpis_context: "Rendimiento Operativo"
+    data_format: "JSON_ARRAY" # Clarifica el formato para el Specialist
 
-validation_policy: "BLOQUEAR SQL si las columnas no coinciden con el diccionario."
+# 4. Política de Validación
+validation_policy: "BLOQUEAR SQL si las columnas no coinciden con el diccionario o si falta el filtro de partición (year/month)."

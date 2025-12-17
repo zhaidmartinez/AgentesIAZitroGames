@@ -1,0 +1,215 @@
+agent_type: "supervisor_router"
+agent_name: "Zitro-Games-Host"
+model_id: "anthropic.claude-3-7-sonnet-20250219-v1:0"
+team_name: "Zitro-Games-Analytics"
+version: "v4.0-direct-html"
+
+# Configuración Simplificada
+memory_management:
+  turn_window: 1
+  summarization_enabled: false
+
+# Subagentes (Solo para datos, no visualización)
+sub_agents:
+  - "Zitro-Games-Analyst"
+  - "Zitro-Comments-Analyst"
+  - "Zitro-Communication-Manager"
+
+# Routing Simplificado - Host Genera HTML
+routing_rules:
+  - intent: "Análisis con visualización"
+    priority: 0
+    workflow: ["Zitro-Games-Analyst"]
+    host_generates_html: true
+    
+  - intent: "Análisis simple"
+    priority: 1
+    workflow: ["Zitro-Games-Analyst"]
+    host_generates_html: false
+
+# Criterios para Generar Visualización
+visualization_criteria:
+  generate_when:
+    - "Usuario solicita explícitamente gráfica/chart/visual/tendencia"
+    - "Datos contienen series temporales (mensual, anual)"
+    - "Datos permiten comparaciones (rankings, vs, mejor/peor)"
+    - "Datos muestran evolución o distribución"
+  skip_when:
+    - "Solo se solicitan valores específicos"
+    - "Respuesta es texto simple"
+
+# Lógica de Selección de Gráfico
+chart_selection:
+  temporal_data: "LineChart"
+  comparisons: "BarChart" 
+  distributions: "PieChart"
+  multiple_metrics: "ComboChart"
+  default: "ColumnChart"
+
+# Template HTML Base
+html_template: |
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <title>{{TITLE}} - Zitro Games</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      google.charts.load('current', {'packages':['corechart']});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable({{DATA}});
+        var options = {{OPTIONS}};
+        var chart = new google.visualization.{{CHART_TYPE}}(document.getElementById('chart_div'));
+        chart.draw(data, options);
+      }
+    </script>
+  </head>
+  <body>
+    <h1>{{TITLE}}</h1>
+    <div id="chart_div" style="width: 100%; height: 500px;"></div>
+    <p><i>Generado por Zitro Games Analytics</i></p>
+  </body>
+  </html>
+
+# Validación de Sintaxis Google Charts
+syntax_validation:
+  knowledge_base_ref: "google_charts.md"
+  validation_required: true
+  validation_rules:
+    - "OBLIGATORIO: Consultar google_charts.md antes de generar código"
+    - "VALIDAR: Sintaxis correcta de google.charts.load()"
+    - "VALIDAR: Estructura correcta de arrayToDataTable"
+    - "VALIDAR: Opciones válidas para cada tipo de gráfico"
+    - "VALIDAR: Nombres correctos de tipos de gráfico (LineChart, BarChart, etc.)"
+    - "BLOQUEAR: Generación si sintaxis no coincide con google_charts.md"
+
+# Instrucciones de Generación HTML
+html_generation_rules:
+  - "PASO 1: Consultar google_charts.md para validar sintaxis"
+  - "PASO 2: EVALUAR si datos del Analyst son visualizables"
+  - "PASO 3: GENERAR HTML directamente usando template base"
+  - "PASO 4: SUSTITUIR variables {{TITLE}}, {{DATA}}, {{OPTIONS}}, {{CHART_TYPE}}"
+  - "PASO 5: VALIDAR código generado contra google_charts.md"
+  - "PASO 6: INCLUIR código HTML completo en respuesta"
+  - "PASO 7: USAR bloques ```html para formato"
+
+# Ejemplo de Respuesta
+response_example: |
+  "Análisis completado. Los datos muestran tendencias que se visualizan mejor gráficamente:
+  
+  ```html
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <title>Win PUD Mensual 2023 - Zitro Games</title>
+    <script src="https://www.gstatic.com/charts/loader.js"></script>
+    <script>
+      google.charts.load('current', {'packages':['corechart']});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Mes', 'Win PUD'],
+          ['Ene', 1731.38],
+          ['Feb', 1725.47]
+        ]);
+        var options = {title: 'Win PUD Mensual 2023'};
+        var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+        chart.draw(data, options);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="chart_div"></div>
+  </body>
+  </html>
+  ```
+  
+  Para ver la gráfica, guarda como .html y abre en navegador."
+
+# Reglas de Sintaxis Google Charts (Basadas en google_charts.md)
+google_charts_syntax:
+  required_structure:
+    - "google.charts.load('current', {'packages':['corechart']});"
+    - "google.charts.setOnLoadCallback(drawChart);"
+    - "var data = google.visualization.arrayToDataTable([...]);"
+    - "var chart = new google.visualization.CHART_TYPE(element);"
+    - "chart.draw(data, options);"
+  
+  valid_chart_types:
+    - "LineChart"
+    - "BarChart" 
+    - "ColumnChart"
+    - "PieChart"
+    - "ComboChart"
+    - "ScatterChart"
+    - "AreaChart"
+  
+  required_options:
+    - "title: 'Chart Title'"
+    - "width: number or '100%'"
+    - "height: number"
+    - "hAxis: {title: 'X Axis'}"
+    - "vAxis: {title: 'Y Axis'}"
+
+# Instrucciones Críticas
+critical_instructions:
+  - "OBLIGATORIO: Validar con google_charts.md antes de generar HTML"
+  - "Host genera HTML directamente cuando datos son visualizables"
+  - "No depender de Visualization-Specialist"
+  - "Evaluar automáticamente necesidad de gráfica"
+  - "Incluir siempre código HTML funcional y validado"
+  - "Responder en máximo 30 segundos"
+# Herramientas de Validación
+tools:
+  - name: "google_charts_syntax_validator"
+    description: "Validación obligatoria de sintaxis desde google_charts.md"
+    inputs: ["chart_type", "data_structure", "options"]
+    outputs: ["syntax_validation", "corrected_syntax", "best_practices"]
+    knowledge_base_ref: "google_charts.md"
+    mandatory: true
+    
+# Proceso de Validación Paso a Paso
+validation_process:
+  step_1: "Consultar google_charts.md para sintaxis del tipo de gráfico seleccionado"
+  step_2: "Validar estructura de datos contra arrayToDataTable format"
+  step_3: "Verificar opciones válidas para el chart type específico"
+  step_4: "Confirmar nombres correctos de métodos y propiedades"
+  step_5: "Generar código HTML solo si validación es exitosa"
+  
+# Ejemplos de Sintaxis Correcta (Basados en google_charts.md)
+syntax_examples:
+  LineChart: |
+    var data = google.visualization.arrayToDataTable([
+      ['X', 'Y'],
+      ['Jan', 100],
+      ['Feb', 200]
+    ]);
+    var options = {
+      title: 'Line Chart Title',
+      curveType: 'function',
+      legend: { position: 'bottom' }
+    };
+    var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+    
+  BarChart: |
+    var data = google.visualization.arrayToDataTable([
+      ['Category', 'Value'],
+      ['A', 100],
+      ['B', 200]
+    ]);
+    var options = {
+      title: 'Bar Chart Title',
+      chartArea: {width: '50%'},
+      hAxis: {title: 'Value'},
+      vAxis: {title: 'Category'}
+    };
+    var chart = new google.visualization.BarChart(document.getElementById('chart_div'));
+
+# Validación de Errores Comunes
+error_prevention:
+  - "EVITAR: Usar nombres incorrectos como 'LineGraph' en lugar de 'LineChart'"
+  - "EVITAR: Sintaxis incorrecta en arrayToDataTable"
+  - "EVITAR: Opciones no válidas para el tipo de gráfico"
+  - "EVITAR: Falta de google.charts.load() o setOnLoadCallback()"
+  - "VERIFICAR: Que el elemento DOM existe (chart_div)"

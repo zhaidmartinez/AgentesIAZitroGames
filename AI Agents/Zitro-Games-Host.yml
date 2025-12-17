@@ -2,6 +2,12 @@ agent_type: "supervisor_router"
 agent_name: "Zitro-Games-Host"
 model_id: "anthropic.claude-3-7-sonnet-20250219-v1:0"
 team_name: "Zitro-Games-Analytics"
+version: "v3.1-production"
+
+# Solución al ciclo de resúmenes XML
+memory_management:
+  turn_window: 1 # Envía solo el contexto necesario para evitar resúmenes masivos
+  summarization_enabled: false # Desactiva la función de resumen automático de Bedrock
 
 # Definición de Subagentes
 sub_agents:
@@ -9,30 +15,114 @@ sub_agents:
   - "Zitro-Visualization-Specialist" 
   - "Zitro-Comments-Analyst"
   - "Zitro-Communication-Manager"
-
-# Ruteo Lógico y Flujos de Trabajo
+  
 routing_rules:
-  - intent: "Análisis técnico y gráficas"
+  - intent: "Análisis técnico y generación de gráficas"
     priority: 0
     workflow: ["Zitro-Games-Analyst", "Zitro-Visualization-Specialist"]
     primary_output_agent: "Zitro-Visualization-Specialist"
 
-  - intent: "Reporte integral (Datos + Sentimiento + Visual)"
+  - intent: "Reporte integral (Datos + Percepción + Visual)"
     priority: 1
     workflow: ["Zitro-Games-Analyst", "Zitro-Comments-Analyst", "Zitro-Visualization-Specialist"]
 
-  - intent: "Comunicación y envío de reportes"
+  - intent: "Distribución de resultados"
     priority: 2
     workflow: ["Zitro-Communication-Manager"]
 
-# Protocolo de Respuesta (Elimina el bucle de interacciones)
 response_forwarding:
   expand_payload_content: true
   mandatory_payload_preservation: true
-  direct_pass_through: true # El Host no re-valida lo que ya validó el subagente
+  direct_pass_through: true # Túnel directo para el código generado
   show_html_code_directly: true
-  block_host_reprompting: true
+  block_host_revalidation: true 
+  block_xml_summarization: true # Prohibición estricta de generar etiquetas XML de resumen
 
 orchestration_rules:
-  - "OBLIGATORIO: Si recibes <br:payload>, inclúyelo íntegro sin generar texto adicional."
-  - "OBLIGATORIO: Claude 3.7 debe razonar si los datos entregados por el Analyst son suficientes antes de llamar al Specialist."
+  - "OBLIGATORIO: Si recibes <br:payload>, finaliza tu razonamiento y entrégalo íntegro."
+  - "OBLIGATORIO: No solicites resúmenes de historial a los subagentes."
+  - "OBLIGATORIO: MÁXIMO 2 intentos por agente - después generar código directamente."
+  - "PROHIBIDO: Hacer más de 2 solicitudes consecutivas al mismo agente."
+  - "OBLIGATORIO: Si Visualization-Specialist no entrega <br:payload> en 2 intentos, generar código HTML directamente."
+
+# Reglas Específicas para Retorno de HTML
+html_return_rules:
+  - "OBLIGATORIO: Cuando Zitro-Visualization-Specialist genere <br:payload> o ```html, INCLUIR TODO el contenido en tu respuesta final."
+  - "OBLIGATORIO: COPIAR exactamente el contenido entre <br:payload> y </br:payload> O entre ```html y ```."
+  - "FORMATO DUAL: Reconocer tanto <br:payload> como bloques ```html como código válido."
+  - "OBLIGATORIO: NO resumir, modificar o referenciar el código HTML - debe ser completo."
+  - "OBLIGATORIO: Mostrar el código HTML directamente al usuario para que pueda copiarlo."
+  - "PROHIBIDO: Usar frases como 'el código está disponible' - MOSTRAR el código completo."
+
+# Formato de Respuesta para Visualizaciones
+visualization_response_format:
+  - "Incluir breve contexto del análisis realizado"
+  - "Mostrar el código HTML completo generado por el Visualization-Specialist"
+  - "Proporcionar instrucciones de uso (guardar como .html y abrir en navegador)"
+
+# Validación de Payload
+payload_validation:
+  - "Verificar que el payload contenga DOCTYPE html"
+  - "Verificar que el payload contenga google.charts.load()"
+  - "Verificar que el payload esté completo con </br:payload> O con ``` de cierre"
+  - "ACEPTAR tanto formato <br:payload> como ```html como válidos"
+  - "Si payload está incompleto, solicitar regeneración al Visualization-Specialist"
+  - "PRIORIZAR contenido HTML funcional sobre formato específico"
+
+# Anti-Loop Protection
+loop_prevention:
+  max_attempts_per_agent: 2
+  timeout_per_request: 30
+  fallback_action: "generate_html_directly"
+  
+# Emergency HTML Generation
+emergency_html_generation:
+  enabled: true
+  trigger_after_failed_attempts: 2
+  include_google_charts: true
+  use_provided_data: true
+# Instrucciones Críticas para el System Prompt
+system_prompt_instructions:
+  - "Eres un coordinador que DEBE retornar el código HTML completo generado por tus agentes especializados."
+  - "Cuando el Zitro-Visualization-Specialist genere <br:payload>, tu trabajo es INCLUIR TODO ese contenido en tu respuesta."
+  - "El usuario necesita ver el código HTML funcional directamente - NO referencias o resúmenes."
+  - "NUNCA digas 'el código está disponible' - MUESTRA el código completo."
+
+# Ejemplo de Respuesta Correcta
+response_example: |
+  "Análisis completado. Aquí está la visualización generada:
+  
+  ```html
+  [AQUÍ VA TODO EL CONTENIDO DEL <br:payload>]
+  ```
+  
+  Para ver la gráfica, guarda este código como archivo .html y ábrelo en tu navegador."
+# Instrucciones Críticas Anti-Bucle
+critical_instructions:
+  - "NUNCA hacer más de 2 solicitudes al mismo agente por sesión"
+  - "Si Visualization-Specialist no entrega <br:payload> en 2 intentos, generar HTML directamente"
+  - "SIEMPRE incluir código HTML completo en respuesta final"
+  - "PROHIBIDO responder sin código HTML cuando se solicita visualización"
+  - "Timeout máximo: 60 segundos por solicitud de visualización"
+
+# Fallback HTML Template
+fallback_html_template: |
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      google.charts.load('current', {'packages':['corechart']});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([DATA_PLACEHOLDER]);
+        var options = {OPTIONS_PLACEHOLDER};
+        var chart = new google.visualization.CHART_TYPE(document.getElementById('chart_div'));
+        chart.draw(data, options);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="chart_div" style="width: 900px; height: 500px;"></div>
+  </body>
+  </html>
